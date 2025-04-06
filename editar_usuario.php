@@ -66,6 +66,7 @@ iniciaPagina("Editar Usuário");
         <option value="1" <?= ($usuario['nivel_acesso_id'] == 1) ? 'selected' : '' ?>>Admin</option>
         <option value="2" <?= ($usuario['nivel_acesso_id'] == 2) ? 'selected' : '' ?>>Atendente</option>
         <option value="3" <?= ($usuario['nivel_acesso_id'] == 3) ? 'selected' : '' ?>>Caixa</option>
+		<option value="4" <?= ($usuario['nivel_acesso_id'] == 3) ? 'selected' : '' ?>>Cozinha</option>
     </select>
 
     <input type="submit" value="Atualizar">
