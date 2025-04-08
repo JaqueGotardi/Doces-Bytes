@@ -17,22 +17,58 @@ function logAction($pdo, $usuario, $action, $details = null) {
     $stmt->execute([$usuario, $action, $details, $ip, $dataHora]);
 }
 
-function getDailyCounter($pdo) {
-    $currentDate = date("Y-m-d");
-    $stmt = $pdo->prepare("SELECT contador FROM contador_diario WHERE data = ?");
-    $stmt->execute([$currentDate]);
-    if ($stmt->rowCount() > 0) {
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $contador = $row['contador'] + 1;
-        $stmtUpdate = $pdo->prepare("UPDATE contador_diario SET contador = ? WHERE data = ?");
-        $stmtUpdate->execute([$contador, $currentDate]);
-    } else {
-        $contador = 1;
-        $stmtInsert = $pdo->prepare("INSERT INTO contador_diario (data, contador) VALUES (?, ?)");
-        $stmtInsert->execute([$currentDate, $contador]);
+function getDailyCounter(PDO $pdo, $nomeTabela)
+{
+    $dataAtual = date('Y-m-d');
+    $prefixo = date('Ymd');
+
+    // Começa uma transação
+    $pdo->beginTransaction();
+
+    try {
+        // Busca o maior numero_diario do dia com trava de linha
+        $stmt = $pdo->prepare("SELECT MAX(numero_diario) as max_num FROM $nomeTabela WHERE DATE(data_hora) = :data FOR UPDATE");
+        $stmt->execute([':data' => $dataAtual]);
+        $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $numero = $resultado && $resultado['max_num'] ? intval($resultado['max_num']) + 1 : 1;
+
+        $numeroFormatado = str_pad($numero, 4, '0', STR_PAD_LEFT);
+        $codigo_unico = $prefixo . '-' . $numeroFormatado;
+
+        $pdo->commit();
+
+        return [$numero, $codigo_unico];
+
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        throw $e;
     }
-    return $contador;
 }
+
+
+function exibirMenuComandas($nivel_acesso) {
+    echo "<h2>Gerenciamento de Comandas</h2>";
+    echo "<style>
+        .submenu-container { display: flex; width: 100%; margin-bottom: 20px; gap: 5px; }
+        .submenu-container button { flex: 1; background-color: #007BFF; color: #fff; border: none; border-radius: 5px; padding: 8px 10px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .submenu-container button:hover { background-color: #0056b3; }
+    </style>";
+    echo "<div class='submenu-container'>
+            <button onclick=\"location.href='docesebytes.php?page=comandas&subpage=cadastrar'\">Cadastrar Comanda</button>
+            <button onclick=\"location.href='docesebytes.php?page=comandas&subpage=ativas'\">Comandas Ativas</button>
+            <button onclick=\"location.href='docesebytes.php?page=comandas&subpage=edicao'\">Edição de Comandas</button>";
+    if ($nivel_acesso == 1) {
+        echo "<button onclick=\"location.href='docesebytes.php?page=comandas&subpage=cancelamentos'\">Cancelar Comandas</button>
+              <button onclick=\"location.href='docesebytes.php?page=comandas&subpage=relatorio'\">Relatório de Comandas Diários</button>";
+    }
+    echo "</div>";
+}
+
+
+
+
+
 
 function isPasswordStrong($password) {
     return preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*\W).{6,}$/', $password);
@@ -226,20 +262,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = "Número da mesa, nome do cliente e ao menos um item são obrigatórios.";
                 echo "<p class='error'>$msg</p>";
             } else {
-                $status = "aberto";
-                $data_hora = date('Y-m-d H:i:s');
-                $historico = json_encode([["acao" => "criado", "data" => $data_hora, "usuario" => $usuario]]);
-                $numero_diario = getDailyCounter($pdo);
-                $codigo_unico = $numero_diario;
-                $stmt = $pdo->prepare("INSERT INTO comandas (mesa, itens, observacoes, atendente, status, data_hora, historico, cliente_nome, numero_diario, codigo_unico) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$mesa, $itens_json, $observacoes, $usuario, $status, $data_hora, $historico, $cliente_nome, $numero_diario, $codigo_unico]);
-                $id_comanda = $pdo->lastInsertId();
-                $_SESSION['msg'] = "Comanda cadastrada com sucesso. ID diário: $numero_diario";
-                notifyKitchen($id_comanda, "Nova comanda criada e enviada para preparo.");
-                logAction($pdo, $usuario, "criar_comanda", "ID: $id_comanda");
-                header("Location: docesebytes.php?page=comandas&subpage=cadastrar");
-                exit;
-            }
+				$status = "aberto";
+				$data_hora = date('Y-m-d H:i:s');
+				$historico = json_encode([["acao" => "criado", "data" => $data_hora, "usuario" => $usuario]]);
+				list($numero_diario, $codigo_unico) = getDailyCounter($pdo, 'comandas');
+
+				$stmt = $pdo->prepare("INSERT INTO comandas (mesa, itens, observacoes, atendente, status, data_hora, historico, cliente_nome, numero_diario, codigo_unico) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+				$stmt->execute([$mesa, $itens_json, $observacoes, $usuario, $status, $data_hora, $historico, $cliente_nome, $numero_diario, $codigo_unico]);
+
+				$id_comanda = $pdo->lastInsertId();
+				$_SESSION['msg'] = "Comanda cadastrada com sucesso. Número do dia: $numero_diario";
+				notifyKitchen($id_comanda, "Nova comanda criada e enviada para preparo.");
+				logAction($pdo, $usuario, "criar_comanda", "ID: $id_comanda");
+			}
+    header("Location: docesebytes.php?page=comandas&subpage=cadastrar");
+    exit;
         } elseif ($action === 'adicionar_itens_comanda') {
     $id_comanda = intval($_POST['id_comanda']);
     $novos_itens_json = trim($_POST['novos_itens']);
@@ -288,22 +325,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header("Location: docesebytes.php?page=comandas&subpage=adicionar&id=$id_comanda");
     exit;
 }elseif ($action === 'cancel_comanda') {
-    $id = intval($_POST['id']);
-    $justificativa = trim($_POST['justificativa']);
-
-    if (empty($justificativa)) {
-        $_SESSION['msg'] = "Justificativa é obrigatória para cancelamento.";
-    } else {
-        // Atualiza a comanda para o status "cancelado" e salva a justificativa
-        $stmt = $pdo->prepare("UPDATE comandas SET status = 'cancelado', cancellation_justification = ? WHERE id = ?");
-        $stmt->execute([$justificativa, $id]);
-        logAction($pdo, $usuario, "cancelar_comanda", "ID: $id, justificativa: $justificativa");
-        $_SESSION['msg'] = "Comanda cancelada com sucesso.";
-    }
-    // Redireciona para a listagem de cancelamentos (que exibirá apenas comandas abertas)
-    header("Location: docesebytes.php?page=comandas&subpage=cancelamentos");
-    exit;
-}elseif ($action === 'cancel_comanda') {
             $id = intval($_POST['id']);
             $justificativa = trim($_POST['justificativa']);
             if (empty($justificativa)) {
@@ -330,7 +351,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     notifyKitchen($id, "Comanda cancelada. Interromper preparo.");
                 }
             }
-
+			exibirMenuComandas($nivel_acesso);
             echo "<p class='message' style='font-weight: bold; color: green; font-size: 18px;'>$msg</p>";
             echo "<br><button onclick='history.go(-2)' style='padding: 10px 20px; background-color: #007BFF; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer;'>Voltar</button>";
             exit;
@@ -620,7 +641,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header("Location: docesebytes.php?page=pagamentos&subpage=resultado_pagamento");
     exit;
 }
-
     }
 }
 
@@ -703,7 +723,8 @@ switch ($page) {
                             <label>Observações Gerais (opcional):</label><br>
                             <textarea name='observacoes'></textarea><br><br>
                             <input type='hidden' name='itens' id='itens' value='[]' required>
-                            <input type='submit' value='Registrar Comanda'>
+                            <input type='submit' value='Registrar Comanda' id='btnRegistrar' style='display:none;'>
+
                           </form>
                           <br><button onclick='history.go(-2)'>Voltar</button>";
 
@@ -722,38 +743,83 @@ switch ($page) {
                                 displayContainerId: 'itens_adicionados',
                                 produtos: produtosComanda
                             });
-                            function validateItems() {
-                                var hiddenField = document.getElementById('itens');
-                                var itensArray = JSON.parse(hiddenField.value);
-                                if (!Array.isArray(itensArray) || itensArray.length === 0) {
-                                    alert('É obrigatório adicionar pelo menos 1 item.');
-                                    return false;
-                                }
-                                return true;
-                            }
+                           function validateItems() {
+								var hiddenField = document.getElementById('itens');
+								var itensArray = JSON.parse(hiddenField.value);
+								if (!Array.isArray(itensArray) || itensArray.length === 0) {
+									alert('É obrigatório adicionar pelo menos 1 item.');
+									return false;
+								}
+								return true;
+							}
+
+							// Sobrescreve a função adicionarItem para exibir o botão
+								const originalAdd = itemManager_comanda.adicionarItem;
+								itemManager_comanda.adicionarItem = function () {
+								originalAdd.call(itemManager_comanda);
+								const hiddenField = document.getElementById('itens');
+								const btnRegistrar = document.getElementById('btnRegistrar');
+								try {
+									const itens = JSON.parse(hiddenField.value);
+									if (Array.isArray(itens) && itens.length > 0) {
+										btnRegistrar.style.display = 'inline-block';
+									}
+								} catch (e) {
+									btnRegistrar.style.display = 'none';
+								}
+							};
+
                           </script>";
                 }
                 break;
 
 case 'ativas':
     echo "<h3>Comandas Ativas</h3>";
-    echo "<form method='get' action='docesebytes.php'>
-            <input type='hidden' name='page' value='comandas'>
-            <input type='hidden' name='subpage' value='ativas'>
-            <label>Filtro (Mesa ou ID):</label>
-            <input type='text' name='filtro' placeholder='Digite a mesa ou ID'>
-            <input type='submit' value='Filtrar'>
-          </form>";
+	echo "<form method='get' action='docesebytes.php'>
+		<input type='hidden' name='page' value='comandas'>
+		<input type='hidden' name='subpage' value='ativas'>
+		
+		<label>Campo:</label>
+		<select name='campo'>
+			<option value='mesa'" . (isset($_GET['campo']) && $_GET['campo'] == 'mesa' ? ' selected' : '') . ">Mesa</option>
+			<option value='numero_diario'" . (isset($_GET['campo']) && $_GET['campo'] == 'numero_diario' ? ' selected' : '') . ">Nº da Comanda</option>
+		</select>
+
+		<label>Tipo:</label>
+		<select name='tipo'>
+			<option value='contem'" . (isset($_GET['tipo']) && $_GET['tipo'] == 'contem' ? ' selected' : '') . ">Contém</option>
+			<option value='igual'" . (isset($_GET['tipo']) && $_GET['tipo'] == 'igual' ? ' selected' : '') . ">Igual</option>
+		</select>
+
+		<label>Valor:</label>
+		<input type='text' name='filtro' placeholder='Digite o valor' value='" . (isset($_GET['filtro']) ? htmlspecialchars($_GET['filtro']) : '') . "'>
+
+		<input type='submit' value='Filtrar'>
+	</form>";
+
 
     // Consulta somente comandas com status "aberto"
-    $query = "SELECT * FROM comandas WHERE status = 'aberto'";
-    $params = [];
-    if (isset($_GET['filtro']) && trim($_GET['filtro']) !== "") {
-        $filtro = trim($_GET['filtro']);
-        $query .= " AND (mesa LIKE ? OR id LIKE ?)";
-        $params[] = "%" . $filtro . "%";
-        $params[] = "%" . $filtro . "%";
-    }
+	$query = "SELECT * FROM comandas WHERE status = 'aberto' or status= 'parcial'";
+	$params = [];
+	if (!empty($_GET['filtro'])) {
+		$campo = $_GET['campo'] ?? 'mesa';
+		$tipo  = $_GET['tipo'] ?? 'contem';
+		$filtro = trim($_GET['filtro']);
+
+		if ($campo !== 'mesa' && $campo !== 'numero_diario') {
+			$campo = 'mesa'; // segurança
+		}
+
+		if ($tipo === 'igual') {
+			$query .= " AND $campo = ?";
+			$params[] = $filtro;
+		} else {
+			$query .= " AND $campo LIKE ?";
+			$params[] = "%" . $filtro . "%";
+		}
+	}
+
+
     $query .= " ORDER BY data_hora DESC";
 
     $stmt = $pdo->prepare($query);
@@ -764,7 +830,7 @@ case 'ativas':
         echo "<table border='1' cellpadding='5' cellspacing='0'>
                 <thead>
                   <tr>
-                    <th>ID</th>
+                    <th>Nº da Comanda</th>
                     <th>Mesa</th>
                     <th>Itens</th>
                     <th>Status</th>
@@ -802,7 +868,7 @@ case 'ativas':
             }
 
             echo "<tr>
-                    <td>" . htmlspecialchars($c['id']) . "</td>
+                    <td style='text-align:center;'>" . htmlspecialchars($c['numero_diario']) . "</td>
                     <td>" . htmlspecialchars($c['mesa']) . "</td>
                     <td>" . $itensDisplay . "</td>
                     <td>" . htmlspecialchars($c['status']) . "</td>
@@ -1138,35 +1204,38 @@ case 'edicao':
         // Listagem para seleção: exibe apenas comandas com status "aberto"
         echo "<h3>Edição de Comandas</h3>";
         echo "<form method='get' action='docesebytes.php'>
-                <input type='hidden' name='page' value='comandas'>
-                <input type='hidden' name='subpage' value='edicao'>
-                <label>ID:</label>
-                <input type='text' name='filtro_id' placeholder='Digite o ID'>
-                <label>Mesa:</label>
-                <input type='text' name='filtro_mesa' placeholder='Digite a mesa'>
-                <label>Cliente:</label>
-                <input type='text' name='filtro_cliente' placeholder='Digite o nome do cliente'>
-                <input type='submit' value='Filtrar'>
-              </form><br>";
+				<input type='hidden' name='page' value='comandas'>
+				<input type='hidden' name='subpage' value='edicao'>
+				<label>Nº da Comanda:</label>
+				<input type='text' name='filtro_numero_diario' placeholder='Digite o número da comanda'>
+				<label>Mesa:</label>
+				<input type='text' name='filtro_mesa' placeholder='Digite a mesa'>
+				<label>Cliente:</label>
+				<input type='text' name='filtro_cliente' placeholder='Digite o nome do cliente'>
+				<input type='submit' value='Filtrar'>
+			</form>";
         // Alterado para exibir apenas comandas com status "aberto"
-        $query = "SELECT * FROM comandas WHERE status = 'aberto'";
-        $conditions = [];
-        $params = [];
-        if (!empty($_GET['filtro_id'])) {
-            $conditions[] = "id LIKE ?";
-            $params[] = "%" . $_GET['filtro_id'] . "%";
-        }
-        if (!empty($_GET['filtro_mesa'])) {
-            $conditions[] = "mesa LIKE ?";
-            $params[] = "%" . $_GET['filtro_mesa'] . "%";
-        }
-        if (!empty($_GET['filtro_cliente'])) {
-            $conditions[] = "cliente_nome LIKE ?";
-            $params[] = "%" . $_GET['filtro_cliente'] . "%";
-        }
-        if (count($conditions) > 0) {
-            $query .= " AND " . implode(" AND ", $conditions);
-        }
+		$query = "SELECT * FROM comandas WHERE status = 'aberto'";
+		$conditions = [];
+		$params = [];
+
+		if (!empty($_GET['filtro_numero_diario'])) {
+			$conditions[] = "numero_diario LIKE ?";
+			$params[] = "%" . $_GET['filtro_numero_diario'] . "%";
+		}
+		if (!empty($_GET['filtro_mesa'])) {
+			$conditions[] = "mesa LIKE ?";
+			$params[] = "%" . $_GET['filtro_mesa'] . "%";
+		}
+		if (!empty($_GET['filtro_cliente'])) {
+			$conditions[] = "cliente_nome LIKE ?";
+			$params[] = "%" . $_GET['filtro_cliente'] . "%";
+		}
+
+		if (count($conditions) > 0) {
+			$query .= " AND " . implode(" AND ", $conditions);
+		}
+
         $query .= " ORDER BY data_hora DESC";
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
@@ -1186,7 +1255,7 @@ case 'edicao':
                     <tbody>";
             foreach ($comandas as $c) {
                 echo "<tr>
-                        <td>" . htmlspecialchars($c['id']) . "</td>
+                        <td style='text-align:center;'>" . htmlspecialchars($c['numero_diario']) . "</td>
                         <td>" . htmlspecialchars($c['mesa']) . "</td>
                         <td>" . htmlspecialchars($c['cliente_nome']) . "</td>
                         <td>" . htmlspecialchars($c['status']) . "</td>
@@ -1284,17 +1353,25 @@ case 'cancelamentos':
               <form method='get' action='docesebytes.php'>
                 <input type='hidden' name='page' value='comandas'>
                 <input type='hidden' name='subpage' value='cancelamentos'>
-                <label>ID:</label>
-                <input type='text' name='id_comanda' placeholder='Digite o ID'>
+				<label>Nº da Comanda:</label>
+				<input type='text' name='numero_diario' placeholder='Digite o número da comanda'>
+				<label>Tipo de filtro:</label>
+				<select name='tipo_filtro'>
+					<option value='contem'>Contém</option>
+					<option value='igual'>Igual</option>
+				</select>
+
                 <input type='submit' value='Filtrar'>
               </form><br>";
 
         $query = "SELECT * FROM comandas WHERE status = 'aberto'";
         $params = [];
-        if (!empty($_GET['id_comanda'])) {
-            $query .= " AND id LIKE ?";
-            $params[] = "%" . trim($_GET['id_comanda']) . "%";
-        }
+		  if (!empty($_GET['numero_diario'])) {
+			$operador = ($_GET['tipo_filtro'] ?? 'contem') === 'igual' ? '=' : 'LIKE';
+			$query .= " AND numero_diario $operador ?";
+			$params[] = $operador === '=' ? trim($_GET['numero_diario']) : '%' . trim($_GET['numero_diario']) . '%';
+		}
+
         $query .= " ORDER BY data_hora DESC";
 
         $stmt = $pdo->prepare($query);
@@ -1328,7 +1405,7 @@ case 'cancelamentos':
                     }
                 }
                 echo "<tr>
-                        <td>" . htmlspecialchars($c['id']) . "</td>
+                        <td style='text-align:center;'>" . htmlspecialchars($c['numero_diario']) . "</td>
                         <td>" . htmlspecialchars($c['codigo_unico']) . "</td>
                         <td>" . htmlspecialchars($c['mesa']) . "</td>
                         <td>" . htmlspecialchars($c['cliente_nome']) . "</td>
@@ -1379,11 +1456,15 @@ case 'cancelamentos':
                             <option value=''>-- Todos --</option>
                             <option value='aberto'" . (isset($_GET['status']) && $_GET['status'] === 'aberto' ? ' selected' : '') . ">Aberto</option>
                             <option value='parcial'" . (isset($_GET['status']) && $_GET['status'] === 'parcial' ? ' selected' : '') . ">Parcial</option>
-                            <option value='fechado'" . (isset($_GET['status']) && $_GET['status'] === 'fechado' ? ' selected' : '') . ">Fechado</option>
                             <option value='cancelado'" . (isset($_GET['status']) && $_GET['status'] === 'cancelado' ? ' selected' : '') . ">Cancelado</option>
                         </select>
-                        <label>ID:</label>
-                        <input type='text' name='id_comanda' placeholder='Digite o ID' value='" . htmlspecialchars($_GET['id_comanda'] ?? '') . "'>
+						<label>Nº da Comanda:</label>
+						<input type='text' name='numero_diario' placeholder='Digite o número da comanda'>
+						<label>Tipo de filtro:</label>
+						<select name='tipo_filtro'>
+							<option value='contem'>Contém</option>
+							<option value='igual'>Igual</option>
+						</select>
                         <input type='submit' value='Filtrar'>
                       </form><br>";
 
@@ -1398,11 +1479,11 @@ case 'cancelamentos':
                         $conditions[] = "status = ?";
                         $params[] = trim($_GET['status']);
                     }
-                    if (isset($_GET['id_comanda']) && trim($_GET['id_comanda']) !== "") {
-                        $conditions[] = "id LIKE ?";
-                        $params[] = "%" . trim($_GET['id_comanda']) . "%";
-                    }
-
+					if (isset($_GET['numero_diario']) && trim($_GET['numero_diario']) !== "") {
+						$operador = ($_GET['tipo_filtro'] ?? 'contem') === 'igual' ? '=' : 'LIKE';
+						$conditions[] = "numero_diario $operador ?";
+						$params[] = $operador === '=' ? trim($_GET['numero_diario']) : '%' . trim($_GET['numero_diario']) . '%';
+					}
                     if (count($conditions) > 0) {
                         $query .= " AND " . implode(" AND ", $conditions);
                     }
@@ -1428,7 +1509,7 @@ case 'cancelamentos':
                                 <tbody>";
                         foreach ($comandas as $c) {
                             echo "<tr>
-                                    <td>" . htmlspecialchars($c['id']) . "</td>
+                                    <td style='text-align:center;'>" . htmlspecialchars($c['numero_diario']) . "</td>
                                     <td>" . htmlspecialchars($c['codigo_unico']) . "</td>
                                     <td>" . htmlspecialchars($c['mesa']) . "</td>
                                     <td>" . htmlspecialchars($c['cliente_nome']) . "</td>
@@ -2048,185 +2129,204 @@ case 'listar':
 
 
 
-    case 'pagamentos':
-        echo "<h2>Localizar Comanda para Pagamento</h2>";
-        echo "<form method='get' action='docesebytes.php'>
-            <input type='hidden' name='page' value='pagamentos'>
-            <label>ID da Comanda:</label>
-            <input type='text' name='filtro_id' placeholder='Digite o ID'>
-            <label>Nome do Cliente:</label>
-            <input type='text' name='filtro_nome' placeholder='Digite o nome'>
-            <label>Mesa:</label>
-            <input type='text' name='filtro_mesa' placeholder='Digite a mesa'>
-            <input type='submit' value='Localizar'>
-          </form>";
-        $filtro_id = isset($_GET['filtro_id']) ? trim($_GET['filtro_id']) : "";
-        $filtro_nome = isset($_GET['filtro_nome']) ? trim($_GET['filtro_nome']) : "";
-        $filtro_mesa = isset($_GET['filtro_mesa']) ? trim($_GET['filtro_mesa']) : "";
-        if ($filtro_id != "" || $filtro_nome != "" || $filtro_mesa != "") {
-            $query = "SELECT * FROM comandas WHERE status IN ('aberto','parcial')";
-            $conditions = [];
-            $params = [];
-            if ($filtro_id != "") {
-                $conditions[] = "id LIKE ?";
-                $params[] = "%" . $filtro_id . "%";
-            }
-            if ($filtro_nome != "") {
-                $conditions[] = "cliente_nome LIKE ?";
-                $params[] = "%" . $filtro_nome . "%";
-            }
-            if ($filtro_mesa != "") {
-                $conditions[] = "mesa LIKE ?";
-                $params[] = "%" . $filtro_mesa . "%";
-            }
-            if (count($conditions) > 0) {
-                $query .= " AND " . implode(" AND ", $conditions);
-            }
-            $query .= " ORDER BY data_hora DESC";
-            $stmt = $pdo->prepare($query);
-            $stmt->execute($params);
-            $comandas = $stmt->fetchAll();
-            if ($comandas) {
-                echo "<table border='1' cellpadding='5' cellspacing='0'>
-                    <thead>
-                      <tr>
-                        <th>ID da Comanda</th>
-                        <th>Mesa</th>
-                        <th>Cliente</th>
-                        <th>Data/Hora</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>";
-                foreach ($comandas as $c) {
-                    echo "<tr>
-                        <td>" . htmlspecialchars($c['id']) . "</td>
-                        <td>" . htmlspecialchars($c['mesa']) . "</td>
-                        <td>" . htmlspecialchars($c['cliente_nome']) . "</td>
-                        <td>" . htmlspecialchars($c['data_hora']) . "</td>
-                        <td>
-                          <a href='docesebytes.php?page=pagamento_detalhes&id=" . htmlspecialchars($c['id']) . "'>Visualizar Comanda</a>
-                        </td>
-                      </tr>";
-                }
-                echo "</tbody></table>";
-            } else {
-                echo "<p>Nenhuma comanda encontrada.</p>";
-            }
-        }
-        echo "<br><button onclick='history.go(-1)'>Voltar</button>";
-        break;
+case 'pagamentos':
+    echo "<h2>Localizar Comanda para Pagamento</h2>";
+	echo "<form method='get' action='docesebytes.php'>
+		<input type='hidden' name='page' value='pagamentos'>
+		<label>Nº da Comanda:</label>
+		<input type='text' name='numero_diario' placeholder='Digite o número da comanda'>
+		<label>Tipo de filtro:</label>
+		<select name='tipo_filtro'>
+			<option value='contem'>Contém</option>
+			<option value='igual'>Igual</option>
+		</select>
+		<label>Nome do Cliente:</label>
+		<input type='text' name='filtro_nome' placeholder='Digite o nome'>
+		<label>Mesa:</label>
+		<input type='text' name='filtro_mesa' placeholder='Digite a mesa'>
+		<input type='submit' value='Localizar'>
+	</form>";
 
-    case 'pagamento_detalhes':
-        if (!isset($_GET['id'])) {
-            echo "<p class='error'>ID da comanda não informado.</p>";
-            break;
+
+    $numero = trim($_GET['numero_diario'] ?? "");
+    $tipoFiltro = $_GET['tipo_filtro'] ?? "contem";
+    $filtro_nome = trim($_GET['filtro_nome'] ?? "");
+    $filtro_mesa = trim($_GET['filtro_mesa'] ?? "");
+
+    if ($numero || $filtro_nome || $filtro_mesa) {
+        $query = "SELECT * FROM comandas WHERE status IN ('aberto','parcial')";
+        $conditions = [];
+        $params = [];
+
+        if ($numero) {
+            if ($tipoFiltro === "igual") {
+                $conditions[] = "numero_diario = ?";
+                $params[] = $numero;
+            } else {
+                $conditions[] = "numero_diario LIKE ?";
+                $params[] = "%$numero%";
+            }
         }
-        $id = intval($_GET['id']);
-        $stmt = $pdo->prepare("SELECT * FROM comandas WHERE id = ?");
-        $stmt->execute([$id]);
-        $comanda = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$comanda) {
-            echo "<p class='error'>Comanda não encontrada.</p>";
-            break;
+        if ($filtro_nome) {
+            $conditions[] = "cliente_nome LIKE ?";
+            $params[] = "%$filtro_nome%";
         }
-        echo "<div id='comanda_detalhes' style='max-width:600px; margin:0 auto;'>
-            <h2>Detalhes da Comanda #" . htmlspecialchars($comanda['id']) . "</h2>
-            <p><strong>Mesa:</strong> " . htmlspecialchars($comanda['mesa']) . "</p>
-            <p><strong>Cliente:</strong> " . htmlspecialchars($comanda['cliente_nome']) . "</p>
-            <p><strong>Data/Hora:</strong> " . htmlspecialchars($comanda['data_hora']) . "</p>
-            <h3>Itens do Pedido</h3>";
-        $itens = json_decode($comanda['itens'], true);
-        $valor_total = 0;
-        if ($itens && is_array($itens) && count($itens) > 0) {
-            echo "<table border='1' cellpadding='5' cellspacing='0' style='border-collapse:collapse; width:100%;'>
-                <thead>
-                  <tr>
-                    <th>Produto</th>
-                    <th>Quantidade</th>
-                    <th>Valor Unitário</th>
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>";
-            foreach ($itens as $item) {
-                $qtd = isset($item['quantidade']) ? $item['quantidade'] : 0;
-                $valor = isset($item['valor']) ? $item['valor'] : 0;
-                $subtotal = $qtd * $valor;
-                $valor_total += $subtotal;
+        if ($filtro_mesa) {
+            $conditions[] = "mesa LIKE ?";
+            $params[] = "%$filtro_mesa%";
+        }
+
+        if ($conditions) {
+            $query .= " AND " . implode(" AND ", $conditions);
+        }
+
+        $query .= " ORDER BY data_hora DESC";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $comandas = $stmt->fetchAll();
+
+        if ($comandas) {
+           echo "<table border='1' cellpadding='5' cellspacing='0'>
+				<thead>
+				  <tr>
+					<th>Nº da Comanda</th>
+					<th>Mesa</th>
+					<th>Cliente</th>
+					<th>Data/Hora</th>
+					<th>Ações</th>
+				  </tr>
+				</thead>
+				<tbody>";
+
+            foreach ($comandas as $c) {
                 echo "<tr>
-                    <td>" . htmlspecialchars($item['produto']) . "</td>
-                    <td>" . number_format($qtd, 2, ',', '.') . "</td>
-                    <td>R$ " . number_format($valor, 2, ',', '.') . "</td>
-                    <td>R$ " . number_format($subtotal, 2, ',', '.') . "</td>
+                    <td style='text-align:center;'>" . htmlspecialchars($c['numero_diario']) . "</td>
+                    <td>" . htmlspecialchars($c['mesa']) . "</td>
+                    <td>" . htmlspecialchars($c['cliente_nome']) . "</td>
+                    <td>" . htmlspecialchars($c['data_hora']) . "</td>
+                    <td>
+                      <a href='docesebytes.php?page=pagamento_detalhes&id=" . htmlspecialchars($c['id']) . "'>Visualizar Comanda</a>
+                    </td>
                   </tr>";
             }
-            echo "</tbody>
-              <tfoot>
-                <tr>
-                  <td colspan='3' style='text-align:right;'><strong>Total:</strong></td>
-                  <td><strong>R$ " . number_format($valor_total, 2, ',', '.') . "</strong></td>
-                </tr>
-              </tfoot>
-             </table>";
+            echo "</tbody></table>";
         } else {
-            echo "<p>Nenhum item encontrado nesta comanda.</p>";
+            echo "<p>Nenhuma comanda encontrada.</p>";
         }
-        echo "</div>";
-        echo "<br><button onclick='window.print()'>Imprimir Comanda</button>";
-        echo "<br><br>
-          <form method='get' action='docesebytes.php'>
-            <input type='hidden' name='page' value='pagamento_encerrar'>
-            <input type='hidden' name='id' value='" . $id . "'>
-            <button type='submit'>Encerrar Comanda</button>
-          </form>";
-        echo "<br><button onclick='history.go(-1)'>Voltar</button>";
-        break;
+    }
+    echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+    break;
 
-    case 'pagamento_encerrar':
-        if (!isset($_GET['id'])) {
-            echo "<p class='error'>ID da comanda não informado.</p>";
-            break;
-        }
-        $id = intval($_GET['id']);
-        $stmt = $pdo->prepare("SELECT * FROM comandas WHERE id = ?");
-        $stmt->execute([$id]);
-        $comanda = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$comanda) {
-            echo "<p class='error'>Comanda não encontrada.</p>";
-            break;
-        }
-        echo "<h2>Encerrar Comanda #" . htmlspecialchars($comanda['id']) . "</h2>";
-        echo "<p><strong>Mesa:</strong> " . htmlspecialchars($comanda['mesa']) . "</p>";
-        echo "<p><strong>Cliente:</strong> " . htmlspecialchars($comanda['cliente_nome']) . "</p>";
-        $itens = json_decode($comanda['itens'], true);
-        $valor_total = 0;
-        if ($itens && is_array($itens)) {
-            foreach ($itens as $item) {
-                $qtd = isset($item['quantidade']) ? $item['quantidade'] : 0;
-                $valor = isset($item['valor']) ? $item['valor'] : 0;
-                $valor_total += ($qtd * $valor);
-            }
-        }
-        echo "<p><strong>Total da Comanda:</strong> R$ " . number_format($valor_total, 2, ',', '.') . "</p>";
-        echo "<h3>Processar Pagamento</h3>";
-        echo "<form method='post' action='docesebytes.php'>
-            <input type='hidden' name='action' value='processa_pagamento'>
-            <input type='hidden' name='id_comanda' value='" . $id . "'>
-            <label>Valor Recebido:</label><br>
-            <input type='number' step='0.01' name='valor' required><br><br>
-            <label>Métodos de Pagamento (selecione um ou mais):</label><br>
-            <select name='metodos[]' multiple required>
-                <option value='dinheiro'>Dinheiro</option>
-                <option value='cartao_credito'>Cartão de Crédito</option>
-                <option value='cartao_debito'>Cartão de Débito</option>
-                <option value='pix'>PIX</option>
-            </select><br><br>
-            <input type='submit' value='Processar Pagamento'>
-          </form>";
-        echo "<br><button onclick='history.go(-1)'>Voltar</button>";
-        break;
 
+    case 'pagamento_detalhes':
+    if (!isset($_GET['id'])) {
+        echo "<p class='error'>ID da comanda não informado.</p>";
+        break;
+    }
+    $id = intval($_GET['id']);
+    $stmt = $pdo->prepare("SELECT * FROM comandas WHERE id = ?");
+    $stmt->execute([$id]);
+    $comanda = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$comanda) {
+        echo "<p class='error'>Comanda não encontrada.</p>";
+        break;
+    }
+    echo "<div id='comanda_detalhes' style='max-width:600px; margin:0 auto;'>
+        <h2>Detalhes da Comanda Nº " . htmlspecialchars($comanda['numero_diario']) . "</h2>
+        <p><strong>Mesa:</strong> " . htmlspecialchars($comanda['mesa']) . "</p>
+        <p><strong>Cliente:</strong> " . htmlspecialchars($comanda['cliente_nome']) . "</p>
+        <p><strong>Data/Hora:</strong> " . htmlspecialchars($comanda['data_hora']) . "</p>
+        <h3>Itens do Pedido</h3>";
+    $itens = json_decode($comanda['itens'], true);
+    $valor_total = 0;
+    if ($itens && is_array($itens) && count($itens) > 0) {
+        echo "<table border='1' cellpadding='5' cellspacing='0' style='border-collapse:collapse; width:100%;'>
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Quantidade</th>
+                <th>Valor Unitário</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>";
+        foreach ($itens as $item) {
+            $qtd = isset($item['quantidade']) ? $item['quantidade'] : 0;
+            $valor = isset($item['valor']) ? $item['valor'] : 0;
+            $subtotal = $qtd * $valor;
+            $valor_total += $subtotal;
+            echo "<tr>
+                <td>" . htmlspecialchars($item['produto']) . "</td>
+                <td>" . number_format($qtd, 2, ',', '.') . "</td>
+                <td>R$ " . number_format($valor, 2, ',', '.') . "</td>
+                <td>R$ " . number_format($subtotal, 2, ',', '.') . "</td>
+              </tr>";
+        }
+        echo "</tbody>
+          <tfoot>
+            <tr>
+              <td colspan='3' style='text-align:right;'><strong>Total:</strong></td>
+              <td><strong>R$ " . number_format($valor_total, 2, ',', '.') . "</strong></td>
+            </tr>
+          </tfoot>
+         </table>";
+    } else {
+        echo "<p>Nenhum item encontrado nesta comanda.</p>";
+    }
+    echo "</div>";
+    echo "<br><button onclick='window.print()'>Imprimir Comanda</button>";
+    echo "<br><br>
+      <form method='get' action='docesebytes.php'>
+        <input type='hidden' name='page' value='pagamento_encerrar'>
+        <input type='hidden' name='id' value='" . $id . "'>
+        <button type='submit'>Encerrar Comanda</button>
+      </form>";
+    echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+    break;
+
+case 'pagamento_encerrar':
+    if (!isset($_GET['id'])) {
+        echo "<p class='error'>ID da comanda não informado.</p>";
+        break;
+    }
+    $id = intval($_GET['id']);
+    $stmt = $pdo->prepare("SELECT * FROM comandas WHERE id = ?");
+    $stmt->execute([$id]);
+    $comanda = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$comanda) {
+        echo "<p class='error'>Comanda não encontrada.</p>";
+        break;
+    }
+    echo "<h2>Encerrar Comanda Nº " . htmlspecialchars($comanda['numero_diario']) . "</h2>";
+    echo "<p><strong>Mesa:</strong> " . htmlspecialchars($comanda['mesa']) . "</p>";
+    echo "<p><strong>Cliente:</strong> " . htmlspecialchars($comanda['cliente_nome']) . "</p>";
+    $itens = json_decode($comanda['itens'], true);
+    $valor_total = 0;
+    if ($itens && is_array($itens)) {
+        foreach ($itens as $item) {
+            $qtd = isset($item['quantidade']) ? $item['quantidade'] : 0;
+            $valor = isset($item['valor']) ? $item['valor'] : 0;
+            $valor_total += ($qtd * $valor);
+        }
+    }
+    echo "<p><strong>Total da Comanda:</strong> R$ " . number_format($valor_total, 2, ',', '.') . "</p>";
+    echo "<h3>Processar Pagamento</h3>";
+    echo "<form method='post' action='docesebytes.php'>
+        <input type='hidden' name='action' value='processa_pagamento'>
+        <input type='hidden' name='id_comanda' value='" . $id . "'>
+        <label>Valor Recebido:</label><br>
+        <input type='number' step='0.01' name='valor' required><br><br>
+        <label>Métodos de Pagamento (selecione um ou mais):</label><br>
+        <select name='metodos[]' multiple required>
+            <option value='dinheiro'>Dinheiro</option>
+            <option value='cartao_credito'>Cartão de Crédito</option>
+            <option value='cartao_debito'>Cartão de Débito</option>
+            <option value='pix'>PIX</option>
+        </select><br><br>
+        <input type='submit' value='Processar Pagamento'>
+      </form>";
+    echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+    break;
 
 
 
