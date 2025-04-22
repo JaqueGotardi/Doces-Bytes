@@ -77,23 +77,38 @@ iniciaPagina("Login - Docesebytes");
     <title>Login - Docesebytes</title>
     <link rel="stylesheet" href="estilo.css">
 </head>
-<body>
-    <div class="logo-container"style="background-color: #f0f0f0;">
-        <img src="logoteste.png" alt="Logo do site" class="logo">
+<body style="margin: 0; font-family: Arial, sans-serif; background-color: #ffe4f2;">
+
+    <!-- Logo -->
+    <div class="logo-container" style="background-color: #f0f0f0; text-align: center; padding: 20px;">
+         <img src="logoteste.png" alt="Logo do site" class="logo" style="max-width: 100%; height: auto; width: 400px;">
     </div>
-    <div class="container">
-        
+
+    <!-- Formulário -->
+    <div class="container" style="display: flex; justify-content: center; align-items: center; flex-direction: column; margin-top: 10px;">
         <?php if (!empty($msg)): ?>
             <p style="color: red;"><?php echo htmlspecialchars($msg); ?></p>
         <?php endif; ?>
-        <form method="post" action="login.php">
-            <input type="text" name="usuario" placeholder="Usuário" required style="width:300px; font-family: Arial, sans-serif; font-size: 14px; height: 40px; padding: 8px;"><br><br>
-<input type="password" name="senha" placeholder="Senha" required style="width:300px; font-family: Arial, sans-serif; font-size: 14px; height: 40px; padding: 8px;"><br>
 
-           <input type="submit" name="login" value="Entrar" style="background-color: #007BFF; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
+        <form method="post" action="login.php" style="text-align: center;">
+            <input type="text" name="usuario" placeholder="Usuário" required 
+                style="width: 300px; font-size: 14px; height: 40px; padding: 8px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;"><br>
+
+            <input type="password" name="senha" placeholder="Senha" required 
+                style="width: 300px; font-size: 14px; height: 40px; padding: 8px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 5px;"><br>
+
+            <input type="submit" name="login" value="Entrar" 
+                style="background-color: #007BFF; color: white; width: 300px; height: 40px; font-size: 14px; border: none; border-radius: 5px; cursor: pointer;">
         </form>
     </div>
+
 </body>
+</html>
+
+
+</body>
+</html>
+
 </html>
 <?php
 terminaPagina();

@@ -112,3 +112,22 @@ th, td {
     color: red;
     margin-bottom: 10px;
 }
+
+.buttonteste {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: #007BFF;
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 5px;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.buttonteste:hover {
+    background-color: #0056b3;
+}

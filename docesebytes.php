@@ -353,7 +353,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 			exibirMenuComandas($nivel_acesso);
             echo "<p class='message' style='font-weight: bold; color: green; font-size: 18px;'>$msg</p>";
-            echo "<br><button onclick='history.go(-2)' style='padding: 10px 20px; background-color: #007BFF; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer;'>Voltar</button>";
+                                        echo "<br><a href='http://localhost/doces-bytes/docesebytes.php?page=home' class=\"buttonteste\">Voltar ao menu</a>";
             exit;
         }  elseif ($action === 'processa_pagamento') {
             $id_comanda = intval($_POST['id_comanda']);
@@ -718,15 +718,15 @@ switch ($page) {
                                 <input type='number' id='valor_item' name='valor_item' step='0.01' readonly>
                                 <label>Observações (opcional):</label>
                                 <input type='text' id='obs_item' name='obs_item'>
-                                <button type='button' onclick='itemManager_comanda.adicionarItem()'>Adicionar Item</button>
+                                <br><button onclick=\"itemManager_comanda.adicionarItem()\" class=\"buttonteste\">Adicionar item</button>                               
                             </div><br>
                             <label>Observações Gerais (opcional):</label><br>
                             <textarea name='observacoes'></textarea><br><br>
                             <input type='hidden' name='itens' id='itens' value='[]' required>
                             <input type='submit' value='Registrar Comanda' id='btnRegistrar' style='display:none;'>
 
-                          </form>
-                          <br><button onclick='history.go(-2)'>Voltar</button>";
+                          </form>";
+                    echo "<br><a href='http://localhost/doces-bytes/docesebytes.php?page=home' class='buttonteste'>Voltar ao Menu</a>";
 
                     echo "<script>
                             var produtosComanda = " . json_encode($produtosPorCategoria) . ";
@@ -885,7 +885,10 @@ case 'ativas':
         echo "<p>Nenhuma comanda ativa encontrada.</p>";
     }
 
-    echo "<br><button onclick='history.go(-2)'>Voltar</button>";
+
+		echo "<br><a href='http://localhost/doces-bytes/docesebytes.php?page=home' class='buttonteste'>Voltar ao Menu</a>";
+
+
     break;
 
 
@@ -952,7 +955,7 @@ case 'adicionar':
         unset($_SESSION['msg']);
         
         // Botão para voltar ou outro fluxo desejado
-        echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+        echo "<br><button onclick=\"history.go(-1)\" class=\"buttonteste\">Voltar</button>";
         
         // Encerra aqui para **não** exibir os detalhes da comanda
         break;
@@ -1053,13 +1056,12 @@ case 'adicionar':
               <input type='number' id='valor_item' step='0.01' readonly>
               <label>Observações (opcional):</label>
               <input type='text' id='obs_item'>
-              <button type='button' onclick='itemManager_adicionar.adicionarItem()'>Adicionar Item</button>
-          </div><br>
+              <button onclick=\"itemManager_adicionar.adicionarItem()\" class=\"buttonteste\">Confirmar Item</button>
+			  </div><br>
           <input type='hidden' name='novos_itens' id='novos_itens' value='[]'>
           <div id='novos_itens_display'></div>
-          <input type='submit' value='Adicionar Itens'>
-          </form>
-          <br><button onclick='history.go(-2)'>Voltar</button>";
+          </form>";
+          echo "<br><button onclick=\"history.go(-1)\" class=\"buttonteste\">Voltar</button>";
     
     echo "<script>
             var produtosAdicionar = " . json_encode($produtosPorCategoria) . ";
@@ -1159,8 +1161,8 @@ case 'edicao':
                   <br><label>Justificativa para edição:</label><br>
                   <textarea name='justificativa' style='width:100%; height:80px;' required></textarea><br><br>
                   <input type='submit' value='Atualizar Comanda'>
-                  </form>
-                  <br><button onclick='history.go(-1)'>Voltar</button>";
+                  </form>";
+            echo "<br><button onclick=\"history.go(-1)\" class=\"buttonteste\">Voltar</button>";
             ?>
             <script>
                 var itensArray = JSON.parse(document.getElementById('itens').value);
@@ -1198,7 +1200,7 @@ case 'edicao':
             <?php
         } else {
             echo "<p class='error'>Comanda não encontrada ou não pode ser editada.</p>";
-            echo "<br><button onclick='history.go(-2)'>Voltar</button>";
+			echo "<br><button onclick=\"window.location.href='docesebytes.php'\">Voltar ao Menu</button>";
         }
     } else {
         // Listagem para seleção: exibe apenas comandas com status "aberto"
@@ -1266,6 +1268,9 @@ case 'edicao':
             echo "</tbody></table>";
         } else {
             echo "<p>Nenhuma comanda encontrada para edição.</p>";
+			// Após exibir a tabela (ou a mensagem de nenhuma comanda encontrada)
+           echo "<br><a href='http://localhost/doces-bytes/docesebytes.php?page=home' class='buttonteste'>Voltar ao Menu</a>";
+
         }
     }
     break;
@@ -1278,7 +1283,7 @@ case 'cancelamentos':
         echo "<p class='message' style='font-weight: bold; color: green; font-size: 18px;'>"
              . htmlspecialchars($_SESSION['msg']) . "</p>";
         unset($_SESSION['msg']);
-        echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+        echo "<br><button onclick='history.go(-1) class='buttonteste''>Voltar</button>";
         break; // Interrompe a exibição da lista
     }
 
@@ -1341,11 +1346,11 @@ case 'cancelamentos':
                     <label>Justificativa:</label><br>
                     <textarea name='justificativa' id='justificativa' style='width:100%; height:80px;' required></textarea><br>
                     <input type='submit' value='Confirmar Cancelamento'>
-                  </form>
-                  <br><button onclick='history.go(-1)'>Voltar</button>";
+                  </form>";
+                  echo "<br><button onclick=\"history.go(-1)\" class=\"buttonteste\">Voltar</button>";
         } else {
             echo "<p class='error'>Comanda não encontrada ou não está em status aberto.</p>";
-            echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+            echo "<br><button onclick='history.go(-1) class='buttonteste'>Voltar</button>";
         }
     } else {
         // Listagem de comandas: somente comandas com status "aberto"
@@ -1363,6 +1368,7 @@ case 'cancelamentos':
 
                 <input type='submit' value='Filtrar'>
               </form><br>";
+			  
 
         $query = "SELECT * FROM comandas WHERE status = 'aberto'";
         $params = [];
@@ -1426,7 +1432,7 @@ case 'cancelamentos':
         } else {
             echo "<p>Nenhuma comanda aberta encontrada para cancelamento.</p>";
         }
-        echo "<br><button onclick='history.go(-2)'>Voltar</button>";
+        echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
     }
 
     echo "<script>
@@ -1521,7 +1527,7 @@ case 'cancelamentos':
                         echo "</tbody></table>";
 
                         // Botão para imprimir o relatório
-                        echo "<br><button onclick='window.print()'>Imprimir Relatório</button>";
+                        echo "<br><button onclick='window.print()' class=\"buttonteste\">Imprimir Relatório</button> <br>";
                     } else {
                         echo "<p>Nenhuma comanda encontrada com os filtros informados.</p>";
                     }
@@ -1529,7 +1535,7 @@ case 'cancelamentos':
                     echo "<p>Use os filtros acima para gerar o relatório de comandas.</p>";
                 }
 
-                echo "<br><button onclick='history.go(-2)'>Voltar</button>";
+                echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
 
                 // Estilo para impressão
                 echo "<style media='print'>
@@ -1628,16 +1634,16 @@ case 'produtos':
                             <option value='ativo'>Ativo</option>
                             <option value='inativo'>Inativo</option>
                         </select>
-                        <input type='submit' value='Cadastrar Produto'>
-                      </form>
-                      <br><button onclick='history.go(-1)'>Voltar</button>";
-                break;
+                        <input type='submit' class=\"buttonteste\" value='Cadastrar Produto'>
+                      </form>";
+                echo "<br><a href='http://localhost/doces-bytes/docesebytes.php?page=home' class='buttonteste'>Voltar ao Menu</a>";
+          break;
 
             case 'listar':
                 if (isset($_SESSION['msg'])) {
                     echo "<p class='message'>" . htmlspecialchars($_SESSION['msg']) . "</p>";
                     unset($_SESSION['msg']);
-                    echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+                    echo "<br><a href='http://localhost/doces-bytes/docesebytes.php?page=home' class='buttonteste'>Voltar</a>";
                     break;
                 }
                 echo "<h3>Listar Produtos</h3>
@@ -1680,14 +1686,14 @@ case 'produtos':
                 } else {
                     echo "<p>Nenhum produto encontrado.</p>";
                 }
-                echo "<br><button onclick='history.go(-1)'>Voltar</button>";
-                break;
+               echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";                
+			   break;
 
             case 'editar':
                 if (isset($_SESSION['msg'])) {
                     echo "<p class='message'>" . htmlspecialchars($_SESSION['msg']) . "</p>";
                     unset($_SESSION['msg']);
-                    echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+                    echo "<br><button onclick='history.go(-1)' class=\"buttonteste\">Voltar</button>";
                     break;
                 }
                 $id = $_GET['id'] ?? null;
@@ -1722,12 +1728,12 @@ case 'produtos':
                                 </select>
                                 <input type='submit' value='Salvar Alterações'>
                               </form>
-                              <br><button onclick='history.go(-1)'>Voltar</button>";
+                              <br><button onclick=\"history.go(-1)\" class=\"buttonteste\">Voltar</button>";
                     } else {
                         echo "<p>Produto não encontrado.</p><br><button onclick='history.go(-1)'>Voltar</button>";
                     }
                 } else {
-                    echo "<p>ID inválido.</p><br><button onclick='history.go(-1)'>Voltar</button>";
+                    echo "<p>ID inválido.</p><br><button onclick='history.go(-1)' class=\"buttonteste\">Voltar</button>";
                 }
                 break;
 
@@ -1750,7 +1756,7 @@ case 'produtos':
                             <option value='ativo'>Ativo</option>
                             <option value='inativo'>Inativo</option>
                         </select>
-                        <input type='submit' value='Gerar Relatório'>
+                        <input type='submit' class=\"buttonteste\" value='Gerar Relatório'>
                       </form><br>";
 
                 $categoria = trim($_GET['categoria'] ?? '');
@@ -1786,18 +1792,18 @@ case 'produtos':
                                     <td>" . htmlspecialchars($p['data_alteracao']) . "</td>
                                   </tr>";
                         }
-                        echo "</tbody></table><br><button onclick='window.print()'>Imprimir Relatório</button>";
+                        echo "</tbody></table><br><button onclick='window.print()' class=\"buttonteste\">Imprimir Relatório</button><br>";
                     } else {
                         echo "<p>Nenhum produto encontrado com os filtros selecionados.</p>";
                     }
                 } else {
                     echo "<p>Use os filtros acima para gerar o relatório.</p>";
                 }
-                echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+                echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
                 break;
 
             default:
-                echo "<p>Subpágina inválida.</p><br><button onclick='history.go(-1)'>Voltar</button>";
+                echo "<p>Subpágina inválida.</p><br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
         } // fim do switch subpage
     }
     break; // fim do case 'produtos'
@@ -1928,9 +1934,9 @@ case 'clientes':
                     <label>E-mail:</label>
                     <input type='email' name='email' pattern='.+@.+\\..+' title='Digite um email válido com @' required><br>
 
-                    <input type='submit' value='Cadastrar Cliente'>
+                    <input type='submit' class=\"buttonteste\" value='Cadastrar Cliente'>
                   </form>
-                  <br><button onclick='history.go(-1)'>Voltar</button>";
+                  <br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
             break;
 
         /* -------------------- LISTAR -------------------- */
@@ -1949,7 +1955,7 @@ case 'listar':
             <input type='text' name='filtro_nome' value='" . htmlspecialchars($_GET['filtro_nome'] ?? '') . "'>
             <label>CPF:</label>
             <input type='text' name='filtro_cpf' value='" . htmlspecialchars($_GET['filtro_cpf'] ?? '') . "'>
-            <input type='submit' value='Filtrar'>
+            <input type='submit' class=\"buttonteste\" value='Filtrar'>
           </form>";
 
     $sql = "SELECT * FROM cliente WHERE 1";
@@ -2013,11 +2019,11 @@ case 'listar':
                   </tr>";
         }
         echo "</tbody></table>";
-        echo "<br><button onclick='window.print()'>Imprimir Relatório</button>";
+        echo "<br><button onclick='window.print()' class=\"buttonteste\">Imprimir Relatório</button><br>";
     } else {
         echo "<p>Nenhum cliente encontrado.</p>";
     }
-    echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+    echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
     break;
 
 
@@ -2036,7 +2042,7 @@ case 'listar':
 
             if (!$cliente) {
                 echo "<p class='message'>Cliente não encontrado.</p>";
-                echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+                echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
                 break;
             }
             echo "<h2>Editar Cliente</h2>
@@ -2083,9 +2089,9 @@ case 'listar':
                     <input type='email' name='email' pattern='.+@.+\\..+' title='Digite um email válido com @'
                            value='" . htmlspecialchars($cliente['email']) . "' required><br>
 
-                    <input type='submit' value='Atualizar Cliente'>
+                    <input type='submit' class=\"buttonteste\"  value='Atualizar Cliente'>
                   </form>
-                  <br><button onclick='history.go(-1)'>Voltar</button>";
+                  <br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
             break;
 
         /* -------------------- CONSULTAR -------------------- */
@@ -2093,7 +2099,7 @@ case 'listar':
             $id = $_GET['id'] ?? null;
             if (!$id) {
                 echo "<p class='message'>ID do cliente não informado.</p>";
-                echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+                echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
                 break;
             }
             // Consulta o cliente
@@ -2103,7 +2109,7 @@ case 'listar':
 
             if (!$cliente) {
                 echo "<p class='message'>Cliente não encontrado.</p>";
-                echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+                echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
                 break;
             }
 
@@ -2118,12 +2124,12 @@ case 'listar':
                     <tr><th>WhatsApp</th><td>" . htmlspecialchars($cliente['whatsapp']) . "</td></tr>
                     <tr><th>E-mail</th><td>" . htmlspecialchars($cliente['email']) . "</td></tr>
                   </table>
-                  <br><button onclick='history.go(-1)'>Voltar</button>";
+                  <br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
             break;
 
         default:
             echo "<p>Subpágina inválida.</p>";
-            echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+            echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
     }
     break;
 
@@ -2144,7 +2150,7 @@ case 'pagamentos':
 		<input type='text' name='filtro_nome' placeholder='Digite o nome'>
 		<label>Mesa:</label>
 		<input type='text' name='filtro_mesa' placeholder='Digite a mesa'>
-		<input type='submit' value='Localizar'>
+		<input type='submit' class=\"buttonteste\" value='Localizar'>
 	</form>";
 
 
@@ -2214,7 +2220,7 @@ case 'pagamentos':
             echo "<p>Nenhuma comanda encontrada.</p>";
         }
     }
-    echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+echo "<br><a href='http://localhost/doces-bytes/docesebytes.php?page=home' class='buttonteste'>Voltar</a>";
     break;
 
 
@@ -2274,14 +2280,14 @@ case 'pagamentos':
         echo "<p>Nenhum item encontrado nesta comanda.</p>";
     }
     echo "</div>";
-    echo "<br><button onclick='window.print()'>Imprimir Comanda</button>";
+    echo "<br><button onclick='window.print()' class=\"buttonteste\">Imprimir Comanda</button><br>";
     echo "<br><br>
       <form method='get' action='docesebytes.php'>
         <input type='hidden' name='page' value='pagamento_encerrar'>
         <input type='hidden' name='id' value='" . $id . "'>
-        <button type='submit'>Encerrar Comanda</button>
+        <button class=\"buttonteste\" type='submit'>Encerrar Comanda</button><br>
       </form>";
-    echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+echo "<br><a href='http://localhost/doces-bytes/docesebytes.php?page=home' class='buttonteste'>Voltar</a>";
     break;
 
 case 'pagamento_encerrar':
@@ -2323,9 +2329,11 @@ case 'pagamento_encerrar':
             <option value='cartao_debito'>Cartão de Débito</option>
             <option value='pix'>PIX</option>
         </select><br><br>
-        <input type='submit' value='Processar Pagamento'>
+        <input type='submit' class=\"buttonteste\" value='Processar Pagamento'>
       </form>";
-    echo "<br><button onclick='history.go(-1)'>Voltar</button>";
+
+echo "<br><a href='http://localhost/doces-bytes/docesebytes.php?page=home' class='buttonteste'>Voltar</a>";
+
     break;
 
 
@@ -2350,7 +2358,7 @@ case 'relatorio_caixa':
             <option value='cartao_credito'" . (($_GET['tipo_pagamento'] ?? '') == 'cartao_credito' ? ' selected' : '') . ">Cartão de Crédito</option>
             <option value='cartao_debito'" . (($_GET['tipo_pagamento'] ?? '') == 'cartao_debito' ? ' selected' : '') . ">Cartão de Débito</option>
         </select>
-        <button type='submit'>Filtrar</button>
+        <button type='submit' class=\"buttonteste\">Filtrar</button>
     </form>";
 
     // Processa os dados se as datas forem informadas
@@ -2393,20 +2401,23 @@ case 'relatorio_caixa':
             }
             echo "</tbody></table>";
             // Botão de impressão aparece somente se houver resultados
-            echo "<br><button type='button' onclick='window.print();'>Imprimir Relatório</button>";
+            echo "<br><button type='button' onclick='window.print()' class='buttonteste'>Imprimir Relatório</button>";
             echo "</div>";
         } else {
             echo "<p style='margin: 20px;'>Nenhum fechamento de caixa encontrado para o período selecionado.</p>";
         }
     } else {
         echo "<p style='margin: 20px;'>Selecione um período para visualizar o relatório.</p>";
+		echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
     }
+	
     break;
 
 
 
     default:
         echo "<p>Página não encontrada.</p>";
+		echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
         break;
 }
 

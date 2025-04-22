@@ -1,0 +1,8 @@
+echo "<br><button onclick=\"history.go(-1)\" class=\"buttonteste\">Voltar</button>";
+
+
+                                <input type='text' id='obs_item' name='obs_item'>
+                                <button type='button' onclick='itemManager_comanda.adicionarItem()'>Adicionar Item</button>
+								
+								
+								 echo "<br><p><a href=\"docesebytes.php?page=home\" class=\"buttonteste\">Voltar ao Menu</a></p>";
