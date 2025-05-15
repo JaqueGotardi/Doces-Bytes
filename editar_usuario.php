@@ -9,8 +9,37 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['nivel_acesso_id'] != 1) {
 }
 
 $pdo = getConnection();
+$nivel_acesso = $_SESSION['user']['nivel_acesso_id'];
 
-// Verifica se foi passado um ID válido
+iniciaPagina("Editar Usuário - Docesebytes");
+
+// Menu
+$menuItems = [
+    '<a href="docesebytes.php?page=home">Home</a>',
+    '<a href="docesebytes.php?page=comandas">Comandas</a>',
+    '<a href="docesebytes.php?page=produtos">Produtos</a>',
+    '<a href="docesebytes.php?page=clientes">Clientes</a>',
+    '<a href="docesebytes.php?page=pagamentos">Pagamentos</a>',
+    '<a href="docesebytes.php?page=relatorio_caixa">Relatórios</a>'
+];
+if ($nivel_acesso == 1) {
+    $menuItems[] = '<a href="admin_usuarios.php">Gerenciar Usuários</a>';
+}
+$menuItems[] = '<a href="login.php?action=logout">Sair</a>';
+$menuStr = implode("  |  ", $menuItems);
+echo <<<HTML
+<style>
+nav a { color: #007BFF; text-decoration: none; font-weight: bold; }
+nav a:hover { text-decoration: underline; }
+nav div { font-size: 20px; }
+</style>
+<nav style="width:100%;">
+    <div style="width:100%; text-align:center;">$menuStr</div>
+</nav>
+<hr>
+HTML;
+
+// Verifica ID válido
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     header("Location: admin_usuarios.php");
     exit;
@@ -19,7 +48,7 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 $id = $_GET['id'];
 $msg = "";
 
-// Buscar usuário pelo ID
+// Buscar usuário
 $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE id = ?");
 $stmt->execute([$id]);
 $usuario = $stmt->fetch();
@@ -29,7 +58,7 @@ if (!$usuario) {
     exit;
 }
 
-// Atualiza os dados do usuário
+// Atualiza os dados
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username']);
     $email = trim($_POST['email']);
@@ -39,19 +68,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute([$username, $email, $nivelAcessoId, $id]);
 
     $msg = "Usuário atualizado com sucesso!";
-    // Atualiza os dados do usuário para exibição
+    // Atualiza para exibição
     $usuario['username'] = $username;
     $usuario['email'] = $email;
     $usuario['nivel_acesso_id'] = $nivelAcessoId;
 }
-
-iniciaPagina("Editar Usuário");
 ?>
 
 <h1>Editar Usuário</h1>
 
 <?php if ($msg): ?>
-    <p class="success"><?= htmlspecialchars($msg) ?></p>
+    <p class="message"><?= htmlspecialchars($msg) ?></p>
 <?php endif; ?>
 
 <form method="post" action="">
@@ -66,14 +93,13 @@ iniciaPagina("Editar Usuário");
         <option value="1" <?= ($usuario['nivel_acesso_id'] == 1) ? 'selected' : '' ?>>Admin</option>
         <option value="2" <?= ($usuario['nivel_acesso_id'] == 2) ? 'selected' : '' ?>>Atendente</option>
         <option value="3" <?= ($usuario['nivel_acesso_id'] == 3) ? 'selected' : '' ?>>Caixa</option>
-		<option value="4" <?= ($usuario['nivel_acesso_id'] == 3) ? 'selected' : '' ?>>Cozinha</option>
+        <option value="4" <?= ($usuario['nivel_acesso_id'] == 4) ? 'selected' : '' ?>>Cozinha</option>
     </select>
 
-    <input type="submit" value="Atualizar">
+    <input type="submit" value="Atualizar" class="buttonteste">
 </form>
 
-<p><a href="admin_usuarios.php">Voltar</a></p>
+<br>
+<p><a class="buttonteste" href="admin_usuarios.php">Voltar para Gerenciar Usuários</a></p>
 
-<?php
-terminaPagina();
-?>
+<?php terminaPagina(); ?>
