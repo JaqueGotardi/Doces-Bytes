@@ -27,7 +27,7 @@ if ($nivel_acesso == 1) {
 }
 $menuItems[] = '<a href="login.php?action=logout">Sair</a>';
 $menuStr = implode("  |  ", $menuItems);
-$menu = <<<HTML
+echo <<<HTML
 <style>
 nav a { color: #007BFF; text-decoration: none; font-weight: bold; }
 nav a:hover { text-decoration: underline; }
@@ -39,32 +39,52 @@ nav div { font-size: 20px; }
 <hr>
 HTML;
 
-echo $menu;
+$msg = "";
 
 // Se o formulário foi enviado, processa o cadastro do novo usuário
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Recupera os dados do formulário
     $username = trim($_POST['username']);
     $email = trim($_POST['email']);
     $nivelAcessoId = (int)$_POST['nivel_acesso'];
-    $senha = $_POST['senha'];
-    
-    // Gera o hash da senha usando password_hash
-    $hashedPassword = password_hash($senha, PASSWORD_DEFAULT);
+    $senha = trim($_POST['senha']);
 
-    // Faz o INSERT no banco de dados
-    $stmt = $pdo->prepare("INSERT INTO usuarios (username, password, email, nivel_acesso_id) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$username, $hashedPassword, $email, $nivelAcessoId]);
+    if (empty($username) || empty($email) || empty($senha)) {
+        $msg = "<p class='message' style='color: red;'>Todos os campos são obrigatórios.</p>";
+    } else {
+        try {
+            $verifica = $pdo->prepare("SELECT 1 FROM usuarios WHERE username = ? LIMIT 1");
+            $verifica->execute([$username]);
 
-    echo "<p class='message'>Usuário cadastrado com sucesso!</p>";
+            if ($verifica->fetch()) {
+                $msg = "<p class='message' style='color: red;'>Já existe um usuário com esse nome. Escolha outro.</p>";
+            } else {
+                $hashedPassword = password_hash($senha, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("INSERT INTO usuarios (username, password, email, nivel_acesso_id) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$username, $hashedPassword, $email, $nivelAcessoId]);
+
+                $msg = "<p class='message' style='color: green;'>Usuário cadastrado com sucesso!</p>";
+            }
+        } catch (PDOException $e) {
+            $msg = "<p class='message' style='color: red;'>Erro: " . htmlspecialchars($e->getMessage()) . "</p>";
+        }
+    }
 }
+echo "<style>
+		.submenu-container { display: flex; width: 100%; margin-bottom: 20px; gap: 5px; }
+		.submenu-container button { flex: 1; background-color: #007BFF; color: #fff; border: none; border-radius: 5px; padding: 8px 10px; font-weight: bold; cursor: pointer; font-size: 16px; }
+		.submenu-container button:hover { background-color: #0056b3; }
 
-// Conteúdo da página de administrador
-echo "<h1>Painel do Administrador</h1>";
-echo "<p>Bem-vindo, <strong>" . htmlspecialchars($_SESSION['user']['username']) . "</strong>. Utilize o formulário abaixo para cadastrar novos usuários.</p>";
+
+	</style>";
+
+echo "<div class='submenu-container'>";
+echo "<p><a class='buttonteste' href='admin_usuarios.php'>Gerenciar Usuários</a></p>";
+echo   " <input class='buttonteste' type='submit' value='Cadastrar'>";
+echo "</div>";
+echo "<h2>Painel do Administrador</h2>";
 ?>
 
-<h2>Cadastrar Novo Usuário</h2>
+<h3>Cadastrar Novo Usuário</h3>
 <form method="post" action="">
     <label>Nome de Usuário:</label>
     <input type="text" name="username" required>
@@ -80,15 +100,16 @@ echo "<p>Bem-vindo, <strong>" . htmlspecialchars($_SESSION['user']['username']) 
         <option value="1">Admin</option>
         <option value="2">Atendente</option>
         <option value="3">Caixa</option>
+        <option value="4">Cozinha</option>
     </select>
-
-    <input class="buttonteste" type="submit" value="Cadastrar">
 </form>
 
-<p><a class="buttonteste" href="admin_usuarios.php">Gerenciar Usuários</a></p>
+
 <br><br>
 <p><a class="buttonteste" href="docesebytes.php">Voltar ao Menu</a></p>
 
 <?php
+if (!empty($msg)) echo "<div style='margin-top: 20px;'>$msg</div>";
+echo "</div>";
 terminaPagina();
 ?>

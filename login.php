@@ -50,9 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($nivel == 1) {
                         header("Location: docesebytes.php");
                     } elseif ($nivel == 2) {
-                        header("Location: atendente_dashboard.php");
+                        header("Location: docesebytes.php");
                     } elseif ($nivel == 3) {
-                        header("Location: caixa_dashboard.php");
+                        header("Location: docesebytes.php");
+					} elseif ($nivel == 4) {
+                        header("Location: docesebytes.php");
                     } else {
                         header("Location: docesebytes.php");
                     }

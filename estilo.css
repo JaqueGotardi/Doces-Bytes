@@ -59,6 +59,7 @@ form label {
     margin-top: 10px;
 }
 
+
 form input[type="text"],
 form input[type="number"],
 form input[type="date"],
@@ -66,6 +67,13 @@ form input[type="email"],
 form textarea,
 form select {
     width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+form input[type="password"] {
+    width: 300px !important;
     padding: 8px;
     margin-top: 5px;
     border: 1px solid #ccc;
