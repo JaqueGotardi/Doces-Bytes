@@ -95,6 +95,49 @@ form input[type="submit"]:hover {
 }
 
 /* Tabelas */
+
+.tabela-clientes {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+.tabela-clientes th,
+.tabela-clientes td {
+    border: 1px solid #ccc;
+    padding: 10px 8px;
+    text-align: left;
+    vertical-align: top;
+    word-break: break-word;
+    white-space: nowrap;
+}
+
+.tabela-clientes th {
+    background-color: #f9f9f9;
+    font-weight: bold;
+}
+
+.tabela-clientes td a {
+    display: inline-block;
+    margin: 2px 4px;
+    color: #007BFF;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.tabela-clientes td a:hover {
+    text-decoration: underline;
+}
+.tabela-container {
+    overflow-x: auto;
+    width: 100%;
+}
+
+.tabela-container table {
+    min-width: 1000px; /* ou 1200px dependendo do conteúdo */
+}
+
 table {
     width: 100%;
     border-collapse: collapse;

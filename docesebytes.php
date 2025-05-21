@@ -294,6 +294,8 @@
 	return manager;
 	}
 	</script>
+
+
 	<?php
 	if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	if (isset($_POST['action'])) {
@@ -471,6 +473,7 @@ exit;
 	} else {
 		$nome = trim($_POST['nome']);
 		$cpf = trim($_POST['cpf']);
+		$cpf = preg_replace('/[^0-9]/', '', $cpf); // remove tudo que não for número
 		$data_nascimento = trim($_POST['data_nascimento']);
 		$endereco = trim($_POST['endereco']);
 		$ddd_telefone = trim($_POST['ddd_telefone']);
@@ -505,6 +508,7 @@ exit;
 	$id = intval($_POST['id']);
 	$nome = trim($_POST['nome']);
 	$cpf = trim($_POST['cpf']);
+	$cpf = preg_replace('/[^0-9]/', '', $cpf); // remove tudo que não for número
 	$data_nascimento = trim($_POST['data_nascimento']);
 	$endereco = trim($_POST['endereco']);
 	$ddd_telefone = trim($_POST['ddd_telefone']);
@@ -1631,17 +1635,40 @@ exit;
 	}
 
 	if ($action === 'excluir_produto') {
-		$id = $_GET['id'] ?? null;
-		if ($id) {
-			$stmt = $pdo->prepare("DELETE FROM produtos WHERE id = ?");
-			$stmt->execute([$id]);
-			$_SESSION['msg'] = "Produto excluído com sucesso!";
-		} else {
-			$_SESSION['msg'] = "ID inválido para exclusão.";
-		}
-		header("Location: docesebytes.php?page=produtos&subpage=listar");
-		exit;
-	}
+    $id = $_GET['id'] ?? null;
+
+    if ($id) {
+        $stmtNome = $pdo->prepare("SELECT nome FROM produtos WHERE id = ?");
+        $stmtNome->execute([$id]);
+        $produtoData = $stmtNome->fetch(PDO::FETCH_ASSOC);
+
+        if ($produtoData) {
+            $produto = strtolower($produtoData['nome']);
+            $likeBusca = '%"produto":"' . $produto . '"%';
+
+            // Verificar em comandas com status aberto ou parcial
+            $stmt = $pdo->prepare("SELECT id FROM comandas WHERE (status = 'aberto' OR status = 'parcial') AND LOWER(itens) LIKE ?");
+            $stmt->execute([$likeBusca]);
+            $emUso = $stmt->fetchColumn();
+
+            if ($emUso) {
+                $_SESSION['msg'] = "Não é possível excluir: o produto está presente em uma ou mais comandas abertas ou parciais.";
+            } else {
+                $stmt = $pdo->prepare("DELETE FROM produtos WHERE id = ?");
+                $stmt->execute([$id]);
+                $_SESSION['msg'] = "Produto excluído com sucesso!";
+            }
+        } else {
+            $_SESSION['msg'] = "Produto não encontrado.";
+        }
+    } else {
+        $_SESSION['msg'] = "ID inválido para exclusão.";
+    }
+
+    header("Location: docesebytes.php?page=produtos&subpage=listar");
+    exit;
+}
+
 
 	// --- Exibição das Subpáginas ---
 	if (!$subpage) {
@@ -1861,28 +1888,9 @@ exit;
 
 	// Submenu
 	echo "<style>
-.submenu-container {
-		display: flex;
-		justify-content: space-between;
-		flex-wrap: nowrap;
-		gap: 10px;
-		margin-bottom: 20px;
-	}
-	.submenu-container button {
-		background-color: #007BFF;
-		color: #fff;
-		border: none;
-		border-radius: 5px;
-		padding: 10px 20px;
-		font-weight: bold;
-		cursor: pointer;
-		font-size: 16px;
-		flex-grow: 1;
-	}
-
-	.submenu-container button:hover {
-		background-color: #0056b3;
-	}
+	.submenu-container { display: flex; width: 100%; margin-bottom: 20px; gap: 5px; }
+	.submenu-container button { flex: 1; background-color: #007BFF; color: #fff; border: none; border-radius: 5px; padding: 8px 10px; font-weight: bold; cursor: pointer; font-size: 16px; }
+	.submenu-container button:hover { background-color: #0056b3; }
 	</style>";
 
 	echo "<div class='submenu-container'>
@@ -1982,7 +1990,24 @@ exit;
 
 					<input type='submit' value='Cadastrar Cliente'>
 					</form>
-					<br><button onclick='history.go(-2)' class='buttonteste'>Voltar</button>";
+					<br><button onclick='history.go(-3)' class='buttonteste'>Voltar</button>
+					
+					<script>
+document.addEventListener(\"DOMContentLoaded\", function () {
+	const cpfInput = document.querySelector('input[name=\"cpf\"]');
+	if (cpfInput) {
+		cpfInput.addEventListener('input', function () {
+			let value = cpfInput.value.replace(/\\D/g, '');
+			if (value.length > 11) value = value.slice(0, 11);
+			value = value.replace(/(\\d{3})(\\d)/, '\$1.\$2');
+			value = value.replace(/(\\d{3})(\\d)/, '\$1.\$2');
+			value = value.replace(/(\\d{3})(\\d{1,2})\$/, '\$1-\$2');
+			cpfInput.value = value;
+		});
+	}
+});
+</script>";
+					
 			break;
 
 	case 'listar':
@@ -2044,7 +2069,7 @@ exit;
 	$clientes = $stmt->fetchAll();
 
 	if ($clientes) {
-		echo "<table border='1' cellpadding='5' cellspacing='0'>
+		echo "<div class='tabela-container'><table class='tabela-clientes'>
 				<thead>
 				  <tr>
 					<th>Nº</th>
@@ -2065,7 +2090,7 @@ exit;
 			echo "<tr>
 					<td>" . $i++ . "</td>
 					<td>" . htmlspecialchars($c['nome']) . "</td>
-					<td>" . htmlspecialchars($c['cpf']) . "</td>
+					<td>" . formatarCPF($c['cpf']) . "</td>
 					<td>" . htmlspecialchars($c['data_nascimento']) . "</td>
 					<td>" . htmlspecialchars($c['endereco']) . "</td>
 					<td>" . htmlspecialchars($c['telefone']) . "</td>
@@ -2085,12 +2110,27 @@ exit;
 			echo "   </td>
 				  </tr>";
 		}
-		echo "</tbody></table>";
+		echo "</tbody></table></div>";
 		echo "<br><button onclick='window.print()' class='buttonteste'>🖨️ Imprimir Relatório</button><br><br>";
 	} else {
 		echo "<p>Nenhum cliente encontrado.</p>";
 	}
-	echo "<br><button onclick='history.go(-1)' class='buttonteste'>Voltar</button>";
+	echo "<br><button onclick='history.go(-1)' class='buttonteste'>Voltar</button>
+	<script>
+document.addEventListener(\"DOMContentLoaded\", function () {
+	const cpfInput = document.querySelector('input[name=\"filtro_cpf\"]');
+	if (cpfInput) {
+		cpfInput.addEventListener('input', function () {
+			let value = cpfInput.value.replace(/\\D/g, '');
+			if (value.length > 11) value = value.slice(0, 11);
+			value = value.replace(/(\\d{3})(\\d)/, '\$1.\$2');
+			value = value.replace(/(\\d{3})(\\d)/, '\$1.\$2');
+			value = value.replace(/(\\d{3})(\\d{1,2})\$/, '\$1-\$2');
+			cpfInput.value = value;
+		});
+	}
+});
+</script>";
 	break;
 
 	case 'editar':
@@ -2120,7 +2160,7 @@ exit;
 		<label>Nome Completo:</label>
 		<input type='text' name='nome' value='" . htmlspecialchars($cliente['nome']) . "' required><br>
 		<label>CPF:</label>
-		<input type='text' name='cpf' value='" . htmlspecialchars($cliente['cpf']) . "' required><br>
+		<input type='text' name='cpf' value='" . formatarCPF($cliente['cpf']) . "' required><br>
 		<label>Data de Nascimento:</label>
 		<input type='date' name='data_nascimento' value='" . htmlspecialchars($cliente['data_nascimento']) . "' required><br>
 		<label>Endereço:</label>
@@ -2167,8 +2207,23 @@ exit;
 
 		<input type='submit' value='Atualizar Cliente'>
 	  </form>
-	  <br><button onclick='history.go(-1)' class='buttonteste'>Voltar</button>";
+	  <br><button onclick='history.go(-1)' class='buttonteste'>Voltar</button>
 
+	  <script>
+document.addEventListener(\"DOMContentLoaded\", function () {
+	const cpfInput = document.querySelector('input[name=\"cpf\"]');
+	if (cpfInput) {
+		cpfInput.addEventListener('input', function () {
+			let value = cpfInput.value.replace(/\\D/g, '');
+			if (value.length > 11) value = value.slice(0, 11);
+			value = value.replace(/(\\d{3})(\\d)/, '\$1.\$2');
+			value = value.replace(/(\\d{3})(\\d)/, '\$1.\$2');
+			value = value.replace(/(\\d{3})(\\d{1,2})\$/, '\$1-\$2');
+			cpfInput.value = value;
+		});
+	}
+});
+</script>";
 	break;
 
 		case 'consultar':
@@ -2193,7 +2248,7 @@ exit;
 			echo "<h2>Consultar Cliente</h2>
 				  <table border='1' cellpadding='5' cellspacing='0' style='border-collapse:collapse; width:50%;'>
 					<tr><th>Nome</th><td>" . htmlspecialchars($cliente['nome']) . "</td></tr>
-					<tr><th>CPF</th><td>" . htmlspecialchars($cliente['cpf']) . "</td></tr>
+					<tr><th>CPF</th><td>" . formatarCPF($cliente['cpf']) . "</td></tr>
 					<tr><th>Data de Nascimento</th><td>" . htmlspecialchars($cliente['data_nascimento']) . "</td></tr>
 					<tr><th>Endereço</th><td>" . htmlspecialchars($cliente['endereco']) . "</td></tr>
 					<tr><th>Telefone</th><td>" . htmlspecialchars($cliente['telefone']) . "</td></tr>
@@ -2550,6 +2605,7 @@ exit;
 	break;
 
 	}
+	
+ echo terminaPagina();
 
-	terminaPagina();
-	?>
+?>
