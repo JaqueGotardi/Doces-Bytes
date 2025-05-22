@@ -894,16 +894,17 @@ exit;
 		foreach ($comandas as $c) {
 			$itensDisplay = "";
 			$itensDecodificados = json_decode($c['itens'], true);
+		
 
 			if ($itensDecodificados && is_array($itensDecodificados)) {
 				$itensDisplay .= "<ul style='margin:0; padding:0; list-style-type:none;'>";
+	
 				foreach ($itensDecodificados as $item) {
 					$produto = $item['produto'] ?? '';
 					$quantidade = $item['quantidade'] ?? 0;
 					$valor = $item['valor'] ?? 0;
 					$observacao = $item['observacao'] ?? '';
 					$totalProduto = $quantidade * $valor;
-
 					$itensDisplay .= "<li>"
 						. htmlspecialchars($produto)
 						. " - Quant.: " . htmlspecialchars($quantidade)
@@ -914,7 +915,8 @@ exit;
 				}
 				$itensDisplay .= "</ul>";
 			} else {
-				$itensDisplay = htmlspecialchars($c['itens']);
+				// $itensDisplay = htmlspecialchars($c['itens']);
+				$itensDisplay.="Nenhum item adicionado";
 			}
 
 			echo "<tr>
@@ -2354,73 +2356,115 @@ document.addEventListener(\"DOMContentLoaded\", function () {
 	break;
 
 	case 'pagamento_detalhes':
-	if (!isset($_GET['id'])) {
-		echo "<p class='error'>ID da comanda não informado.</p>";
-		break;
-	}
-	$id = intval($_GET['id']);
-	$stmt = $pdo->prepare("SELECT * FROM comandas WHERE id = ?");
-	$stmt->execute([$id]);
-	$comanda = $stmt->fetch(PDO::FETCH_ASSOC);
-	if (!$comanda) {
-		echo "<p class='error'>Comanda não encontrada.</p>";
-		break;
-	}
-	echo "<div id='comanda_detalhes' style='max-width:600px; margin:0 auto;'>
-		<h2>Detalhes da Comanda Nº " . htmlspecialchars($comanda['numero_diario']) . "</h2>
-		<p><strong>Mesa:</strong> " . htmlspecialchars($comanda['mesa']) . "</p>
-		<p><strong>Cliente:</strong> " . htmlspecialchars($comanda['cliente_nome']) . "</p>
-		<p><strong>Data/Hora:</strong> " . htmlspecialchars($comanda['data_hora']) . "</p>
-		<h3>Itens do Pedido</h3>";
-	$itens = json_decode($comanda['itens'], true);
-	$valor_total = 0;
-	if ($itens && is_array($itens) && count($itens) > 0) {
-		echo "<table border='1' cellpadding='5' cellspacing='0' style='border-collapse:collapse; width:100%;'>
-			<thead>
-			  <tr>
-				<th>Produto</th>
-				<th>Quantidade</th>
-				<th>Valor Unitário</th>
-				<th>Total</th>
-			  </tr>
-			</thead>
-			<tbody>";
-		foreach ($itens as $item) {
-			$qtd = isset($item['quantidade']) ? $item['quantidade'] : 0;
-			$valor = isset($item['valor']) ? $item['valor'] : 0;
-			$subtotal = $qtd * $valor;
-			$valor_total += $subtotal;
-			echo "<tr>
-				<td>" . htmlspecialchars($item['produto']) . "</td>
-				<td>" . number_format($qtd, 2, ',', '.') . "</td>
-				<td>R$ " . number_format($valor, 2, ',', '.') . "</td>
-				<td>R$ " . number_format($subtotal, 2, ',', '.') . "</td>
-			  </tr>";
-		}
-		echo "</tbody>
-		  <tfoot>
-			<tr>
-			  <td colspan='3' style='text-align:right;'><strong>Total:</strong></td>
-			  <td><strong>R$ " . number_format($valor_total, 2, ',', '.') . "</strong></td>
-			</tr>
-		  </tfoot>
-		 </table>";
-	} else {
-		echo "<p>Nenhum item encontrado nesta comanda.</p>";
-	}
-	echo "</div>";
-	echo "<br><br>
-	  <form method='get' action='docesebytes.php'>
-		<input type='hidden' name='page' value='pagamento_encerrar'>
-		<input type='hidden' name='id' value='" . $id . "'>
-	   <div style='text-align: center; margin-top: 20px;'>
-		<button onclick='window.print()' class='buttonteste'>🖨️ Imprimir Comanda</button>
-		&nbsp;&nbsp;&nbsp;&nbsp;
-		<button type='submit' class='buttonteste'>💳 Realizar Pagamento</button>
-	  </div><br><br>
-	  </form>";
-	echo "<br><button onclick='history.go(-1)' class='buttonteste'>Voltar</button>";
-	break;
+    if (!isset($_GET['id'])) {
+        echo "<p class='error'>ID da comanda não informado.</p>";
+        break;
+    }
+
+    $id = intval($_GET['id']);
+    $stmt = $pdo->prepare("SELECT * FROM comandas WHERE id = ?");
+    $stmt->execute([$id]);
+    $comanda = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$comanda) {
+        echo "<p class='error'>Comanda não encontrada.</p>";
+        break;
+    }
+
+    echo "<div id='comanda_detalhes' style='max-width:600px; margin:0 auto;'>
+        <h2>Detalhes da Comanda Nº " . htmlspecialchars($comanda['numero_diario']) . "</h2>
+        <p><strong>Mesa:</strong> " . htmlspecialchars($comanda['mesa']) . "</p>
+        <p><strong>Cliente:</strong> " . htmlspecialchars($comanda['cliente_nome']) . "</p>
+        <p><strong>Data/Hora:</strong> " . htmlspecialchars($comanda['data_hora']) . "</p>
+        <h3>Itens do Pedido</h3>";
+
+    $itens = json_decode($comanda['itens'], true);
+    $pagamento = json_decode($comanda['pagamento'], true);
+    $valor_total = 0;
+
+    if ($itens && is_array($itens) && count($itens) > 0) {
+        echo "<table border='1' cellpadding='5' cellspacing='0' style='border-collapse:collapse; width:100%;'>
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Quantidade</th>
+                <th>Valor Unitário</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>";
+        foreach ($itens as $item) {
+            $qtd = isset($item['quantidade']) ? $item['quantidade'] : 0;
+            $valor = isset($item['valor']) ? $item['valor'] : 0;
+            $subtotal = $qtd * $valor;
+            $valor_total += $subtotal;
+            echo "<tr>
+                <td>" . htmlspecialchars($item['produto']) . "</td>
+                <td>" . number_format($qtd, 2, ',', '.') . "</td>
+                <td>R$ " . number_format($valor, 2, ',', '.') . "</td>
+                <td>R$ " . number_format($subtotal, 2, ',', '.') . "</td>
+              </tr>";
+        }
+        echo "</tbody>
+          <tfoot>
+            <tr>
+              <td colspan='3' style='text-align:right;'><strong>Total:</strong></td>
+              <td><strong>R$ " . number_format($valor_total, 2, ',', '.') . "</strong></td>
+            </tr>";
+
+        // Se houver pagamentos, exibir linhas adicionais
+        $total_pago = 0;
+        if (isset($pagamento['historico']) && is_array($pagamento['historico']) && count($pagamento['historico']) > 0) {
+            foreach ($pagamento['historico'] as $p) {
+                $total_pago += floatval($p['valor']);
+            }
+            $restante = $valor_total - $total_pago;
+            echo "<tr>
+                    <td colspan='3' style='text-align:right;'><strong>Total Pago:</strong></td>
+                    <td><strong style='color:green;'>R$ " . number_format($total_pago, 2, ',', '.') . "</strong></td>
+                  </tr>
+                  <tr>
+                    <td colspan='3' style='text-align:right;'><strong>Restante:</strong></td>
+                    <td><strong style='color:orange;'>R$ " . number_format($restante, 2, ',', '.') . "</strong></td>
+                  </tr>";
+        }
+
+        echo "</tfoot>
+         </table>";
+    } else {
+        echo "<p>Nenhum item encontrado nesta comanda.</p>";
+    }
+
+    // Histórico de Pagamentos
+    if (isset($pagamento['historico']) && is_array($pagamento['historico'])) {
+        echo "<h3>Histórico de Pagamentos</h3>
+              <table border='1' cellpadding='5' cellspacing='0' style='border-collapse: collapse; width:100%;'>
+              <thead><tr><th>Métodos</th><th>Valor</th><th>Data/Hora</th><th>Responsável</th></tr></thead><tbody>";
+        foreach ($pagamento['historico'] as $p) {
+            echo "<tr>
+                    <td>" . htmlspecialchars(implode(', ', $p['metodos'])) . "</td>
+                    <td>R$ " . number_format($p['valor'], 2, ',', '.') . "</td>
+                    <td>" . htmlspecialchars($p['data_hora']) . "</td>
+                    <td>" . htmlspecialchars($p['usuario']) . "</td>
+                  </tr>";
+        }
+        echo "</tbody></table>";
+    }
+
+    echo "</div>";
+    echo "<br><br>
+      <form method='get' action='docesebytes.php'>
+        <input type='hidden' name='page' value='pagamento_encerrar'>
+        <input type='hidden' name='id' value='" . $id . "'>
+       <div style='text-align: center; margin-top: 20px;'>
+        <button onclick='window.print()' class='buttonteste'>🖨️ Imprimir Comanda</button>
+        &nbsp;&nbsp;&nbsp;&nbsp;
+        <button type='submit' class='buttonteste'>💳 Realizar Pagamento</button>
+      </div><br><br>
+      </form>";
+
+    echo "<br><button onclick='history.go(-1)' class='buttonteste'>Voltar</button>";
+    break;
 
 	case 'pagamento_encerrar':
 	if (!isset($_GET['id'])) {
@@ -2449,6 +2493,7 @@ document.addEventListener(\"DOMContentLoaded\", function () {
 	echo "<p><strong>Cliente:</strong> " . htmlspecialchars($comanda['cliente_nome']) . "</p>";
 
 	$itens = json_decode($comanda['itens'], true);
+	$pagamento = json_decode($comanda['pagamento'], true);
 	$valor_total = 0;
 
 	if ($itens && is_array($itens)) {
@@ -2480,11 +2525,43 @@ document.addEventListener(\"DOMContentLoaded\", function () {
 				<tr>
 					<td colspan='3' style='text-align:right;'><strong>Total:</strong></td>
 					<td><strong>R$ " . number_format($valor_total, 2, ',', '.') . "</strong></td>
-				</tr>
-			</tfoot>
+				</tr>";
+
+		$total_pago = 0;
+		if (isset($pagamento['historico']) && is_array($pagamento['historico']) && count($pagamento['historico']) > 0) {
+			foreach ($pagamento['historico'] as $p) {
+				$total_pago += floatval($p['valor']);
+			}
+			$restante = $valor_total - $total_pago;
+			echo "<tr>
+					<td colspan='3' style='text-align:right;'><strong>Total Pago:</strong></td>
+					<td><strong style='color:green;'>R$ " . number_format($total_pago, 2, ',', '.') . "</strong></td>
+				  </tr>
+				  <tr>
+					<td colspan='3' style='text-align:right;'><strong>Restante:</strong></td>
+					<td><strong style='color:orange;'>R$ " . number_format($restante, 2, ',', '.') . "</strong></td>
+				  </tr>";
+		}
+
+		echo "</tfoot>
 		</table>";
 	} else {
 		echo "<p>Nenhum item encontrado nesta comanda.</p>";
+	}
+
+	if (isset($pagamento['historico']) && is_array($pagamento['historico'])) {
+		echo "<h3>Histórico de Pagamentos</h3>
+			  <table border='1' cellpadding='5' cellspacing='0' style='border-collapse: collapse; width:100%;'>
+			  <thead><tr><th>Métodos</th><th>Valor</th><th>Data/Hora</th><th>Responsável</th></tr></thead><tbody>";
+		foreach ($pagamento['historico'] as $p) {
+			echo "<tr>
+					<td>" . htmlspecialchars(implode(', ', $p['metodos'])) . "</td>
+					<td>R$ " . number_format($p['valor'], 2, ',', '.') . "</td>
+					<td>" . htmlspecialchars($p['data_hora']) . "</td>
+					<td>" . htmlspecialchars($p['usuario']) . "</td>
+				  </tr>";
+		}
+		echo "</tbody></table>";
 	}
 
 	echo "<h3>Processar Pagamento</h3>";
